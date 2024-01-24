@@ -47,6 +47,30 @@ func TestAccQBusinessUser_basic(t *testing.T) {
 	})
 }
 
+func TestAccQBusinessUser_disappears(t *testing.T) {
+	ctx := acctest.Context(t)
+	var user qbusiness.GetUserOutput
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "aws_qbusiness_user.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheckUser(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, "qbusiness"),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckUserDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserConfig_basic(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckUserExists(ctx, resourceName, &user),
+					acctest.CheckResourceDisappears(ctx, acctest.Provider, tfqbusiness.ResourceUser(), resourceName),
+				),
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func testAccPreCheckUser(ctx context.Context, t *testing.T) {
 	conn := acctest.Provider.Meta().(*conns.AWSClient).QBusinessClient(ctx)
 
