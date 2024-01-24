@@ -119,7 +119,7 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	}
 
 	if v, ok := d.GetOk("user_aliases"); ok {
-		input.UserAliases = expandUserAliases(v.(*schema.Set).List())
+		input.UserAliases = expandUserAliases(v.([]interface{}))
 	}
 
 	_, err := conn.CreateUser(ctx, input)
@@ -156,16 +156,90 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 	d.Set("user_id", user_id)
 	d.Set("user_aliases", flattenUserAliases(output.UserAliases))
 
-	return diags
+	return append(diags, resourceUserRead(ctx, d, meta)...)
 }
 
 func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
+
+	conn := meta.(*conns.AWSClient).QBusinessClient(ctx)
+
+	application_id, user_id, err := parseUserID(d.Id())
+
+	if err != nil {
+		return sdkdiag.AppendErrorf(diags, "invalid user ID: %s", d.Id())
+	}
+
+	input := &qbusiness.UpdateUserInput{
+		ApplicationId: aws.String(application_id),
+		UserId:        aws.String(user_id),
+	}
+
+	old, new := d.GetChange("user_aliases")
+
+	old_aliases := expandUserAliases(old.([]interface{}))
+	new_aliases := expandUserAliases(new.([]interface{}))
+
+	input.UserAliasesToUpdate = new_aliases
+	input.UserAliasesToDelete = findAliasesToDelete(old_aliases, new_aliases)
+
+	_, err = conn.UpdateUser(ctx, input)
+
+	if err != nil {
+		return sdkdiag.AppendErrorf(diags, "updating qbusiness user (%s): %s", d.Id(), err)
+	}
+
 	return diags
+}
+
+func equalAliases(a, b types.UserAlias) bool {
+	return aws.ToString(a.UserId) == aws.ToString(b.UserId) &&
+		aws.ToString(a.DataSourceId) == aws.ToString(b.DataSourceId) &&
+		aws.ToString(a.IndexId) == aws.ToString(b.IndexId)
+}
+
+func findAliasesToDelete(old, new []types.UserAlias) []types.UserAlias {
+	aliases := make([]types.UserAlias, 0, len(old))
+
+	for _, o := range old {
+		found := false
+		for _, n := range new {
+			if equalAliases(o, n) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			aliases = append(aliases, o)
+		}
+	}
+	return aliases
 }
 
 func resourceUserDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
+
+	conn := meta.(*conns.AWSClient).QBusinessClient(ctx)
+
+	application_id, user_id, err := parseUserID(d.Id())
+
+	if err != nil {
+		return sdkdiag.AppendErrorf(diags, "invalid user ID: %s", d.Id())
+	}
+
+	_, err = conn.DeleteUser(ctx, &qbusiness.DeleteUserInput{
+		ApplicationId: aws.String(application_id),
+		UserId:        aws.String(user_id),
+	})
+
+	if errs.IsA[*types.ResourceNotFoundException](err) {
+		return diags
+	}
+
+	if err != nil {
+		return sdkdiag.AppendErrorf(diags, "deleting qbusiness user (%s): %s", d.Id(), err)
+	}
+
 	return diags
 }
 
@@ -218,16 +292,17 @@ func flattenUserAliases(v []types.UserAlias) []interface{} {
 			"index_id":      aws.ToString(r.IndexId),
 		})
 	}
-	return res
+	return []interface{}{map[string]interface{}{"alias": res}}
 }
 
 func expandUserAliases(v []interface{}) []types.UserAlias {
-	if len(v) == 0 {
+	if len(v) == 0 || v[0] == nil {
 		return nil
 	}
+	aliases := v[0].(map[string]interface{})["alias"].([]interface{})
 
 	res := make([]types.UserAlias, 0, len(v))
-	for _, r := range v {
+	for _, r := range aliases {
 		m := r.(map[string]interface{})
 		res = append(res, types.UserAlias{
 			UserId:       aws.String(m["user_id"].(string)),
