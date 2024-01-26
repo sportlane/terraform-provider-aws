@@ -20,14 +20,10 @@ import (
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
-	tftags "github.com/hashicorp/terraform-provider-aws/internal/tags"
 	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
-	"github.com/hashicorp/terraform-provider-aws/internal/verify"
-	"github.com/hashicorp/terraform-provider-aws/names"
 )
 
 // @SDKResource("aws_qbusiness_user", name="User")
-// @Tags(identifierAttribute="arn")
 func ResourceUser() *schema.Resource {
 	return &schema.Resource{
 
@@ -39,8 +35,6 @@ func ResourceUser() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
-
-		CustomizeDiff: verify.SetTagsDiff,
 
 		Schema: map[string]*schema.Schema{
 			"application_id": {
@@ -58,7 +52,7 @@ func ResourceUser() *schema.Resource {
 				ValidateFunc: validation.StringLenBetween(0, 2048),
 			},
 			"user_aliases": {
-				Type:        schema.TypeSet,
+				Type:        schema.TypeList,
 				Optional:    true,
 				MaxItems:    1,
 				Description: "List of user aliases attached to a user mapping.",
@@ -99,8 +93,6 @@ func ResourceUser() *schema.Resource {
 					},
 				},
 			},
-			names.AttrTags:    tftags.TagsSchema(),
-			names.AttrTagsAll: tftags.TagsSchemaComputed(),
 		},
 	}
 }
@@ -118,13 +110,13 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 		UserId:        aws.String(user_id),
 	}
 
-	if v, ok := d.GetOk("user_aliases"); ok {
+	if v, ok := d.GetOk("user_aliases"); ok && len(v.([]interface{})) > 0 {
 		input.UserAliases = expandUserAliases(v.([]interface{}))
 	}
 
 	_, err := conn.CreateUser(ctx, input)
 
-	if err != nil {
+	if err != nil && !errs.IsA[*types.ConflictException](err) {
 		return sdkdiag.AppendErrorf(diags, "creating Amazon Q user: %s", err)
 	}
 
@@ -154,9 +146,9 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 
 	d.Set("application_id", application_id)
 	d.Set("user_id", user_id)
-	d.Set("user_aliases", flattenUserAliases(output.UserAliases))
+	d.Set("user_aliases", flattenUserAliases(filterEmptyAliases(output.UserAliases)))
 
-	return append(diags, resourceUserRead(ctx, d, meta)...)
+	return diags
 }
 
 func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -181,20 +173,35 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 	new_aliases := expandUserAliases(new.([]interface{}))
 
 	input.UserAliasesToUpdate = new_aliases
-	input.UserAliasesToDelete = findAliasesToDelete(old_aliases, new_aliases)
 
 	_, err = conn.UpdateUser(ctx, input)
 
 	if err != nil {
-		return sdkdiag.AppendErrorf(diags, "updating qbusiness user (%s): %s", d.Id(), err)
+		return sdkdiag.AppendErrorf(diags, "updating qbusiness user (%s): update aliases stage %s", d.Id(), err)
 	}
 
-	return diags
+	deleted_aliases := findAliasesToDelete(old_aliases, new_aliases)
+
+	// Update and delete needs to be done in separate calls
+	if len(deleted_aliases) > 0 {
+		input = &qbusiness.UpdateUserInput{
+			ApplicationId:       aws.String(application_id),
+			UserId:              aws.String(user_id),
+			UserAliasesToDelete: deleted_aliases,
+		}
+
+		_, err := conn.UpdateUser(ctx, input)
+
+		if err != nil {
+			return sdkdiag.AppendErrorf(diags, "updating qbusiness user (%s): delete aliases stage %s", d.Id(), err)
+		}
+	}
+
+	return append(diags, resourceUserRead(ctx, d, meta)...)
 }
 
 func equalAliases(a, b types.UserAlias) bool {
-	return aws.ToString(a.UserId) == aws.ToString(b.UserId) &&
-		aws.ToString(a.DataSourceId) == aws.ToString(b.DataSourceId) &&
+	return aws.ToString(a.DataSourceId) == aws.ToString(b.DataSourceId) &&
 		aws.ToString(a.IndexId) == aws.ToString(b.IndexId)
 }
 
@@ -279,8 +286,18 @@ func FindUserByID(ctx context.Context, conn *qbusiness.Client, id string) (*qbus
 	return output, nil
 }
 
+func filterEmptyAliases(aliases []types.UserAlias) []types.UserAlias {
+	res := make([]types.UserAlias, 0, len(aliases))
+	for _, a := range aliases {
+		if a.DataSourceId != nil || a.IndexId != nil {
+			res = append(res, a)
+		}
+	}
+	return res
+}
+
 func flattenUserAliases(v []types.UserAlias) []interface{} {
-	if v == nil {
+	if len(v) == 0 {
 		return nil
 	}
 
