@@ -56,9 +56,6 @@ func (p *servicePackage) SDKResources(ctx context.Context) []*types.ServicePacka
 			Factory:  ResourceUser,
 			TypeName: "aws_qbusiness_user",
 			Name:     "User",
-			Tags: &types.ServicePackageResourceTags{
-				IdentifierAttribute: "arn",
-			},
 		},
 	}
 }
