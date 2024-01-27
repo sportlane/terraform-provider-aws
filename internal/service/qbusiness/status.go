@@ -26,3 +26,19 @@ func statusAppAvailability(ctx context.Context, conn *qbusiness.Client, id strin
 		return output, string(output.Status), nil
 	}
 }
+
+func statusIndexAvailability(ctx context.Context, conn *qbusiness.Client, index_id string) retry.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		output, err := FindIndexByID(ctx, conn, index_id)
+
+		if tfresource.NotFound(err) {
+			return nil, "", nil
+		}
+
+		if err != nil {
+			return nil, "", err
+		}
+
+		return output, string(output.Status), nil
+	}
+}
