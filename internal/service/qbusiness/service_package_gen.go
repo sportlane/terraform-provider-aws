@@ -45,6 +45,11 @@ func (p *servicePackage) SDKResources(ctx context.Context) []*types.ServicePacka
 			},
 		},
 		{
+			Factory:  ResourceGroup,
+			TypeName: "aws_qbusiness_group",
+			Name:     "Group",
+		},
+		{
 			Factory:  ResourceIndex,
 			TypeName: "aws_qbusiness_index",
 			Name:     "Index",
