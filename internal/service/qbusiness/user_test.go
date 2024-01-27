@@ -191,15 +191,15 @@ resource "aws_iam_role" "test" {
 {
 "Version": "2012-10-17",
 "Statement": [
-	{
-	"Action": "sts:AssumeRole",
-	"Principal": {
-		"Service": "qbusiness.${data.aws_partition.current.dns_suffix}"
-	},
-	"Effect": "Allow",
-	"Sid": ""
-	}
-	]
+    {
+    "Action": "sts:AssumeRole",
+    "Principal": {
+        "Service": "qbusiness.${data.aws_partition.current.dns_suffix}"
+    },
+    "Effect": "Allow",
+    "Sid": ""
+    }
+  ]
 }
 EOF
 }
@@ -210,28 +210,88 @@ func testAccUserConfig_alias(rName string) string {
 	return fmt.Sprintf(`
 data "aws_partition" "current" {}
 
-//resource "aws_qbusiness_app" "test" {
-//  display_name         = %[1]q
-//  iam_service_role_arn = aws_iam_role.test.arn
-//}
+resource "aws_qbusiness_app" "test" {
+  display_name         = %[1]q
+  iam_service_role_arn = aws_iam_role.test.arn
+}
 
 resource "aws_qbusiness_user" "test" {
-  //application_id = aws_qbusiness_app.test.application_id
-  application_id = "9e10b0a5-ae16-4109-bfff-ef81894c498d"
+  application_id = aws_qbusiness_app.test.application_id
   user_id        = "user@example.com"
 
   user_aliases {
     alias {
       user_id       = "alias1"
-	  index_id      = "6ed5dbab-6a79-407c-8d9a-3ac55ae3d67d"
-	  datasource_id = "e7eadcde-3c98-4929-a907-d16721fc756b"
+      index_id      = aws_qbusiness_index.test.index_id
+      datasource_id = aws_qbusiness_datasource.test.datasource_id
     }
-	alias {
+    alias {
       user_id       = "alias2"
-      index_id      = "6ed5dbab-6a79-407c-8d9a-3ac55ae3d67d"
-      datasource_id = "0693542b-0b1c-4188-bbf8-a1e8a070dd4f"
+      index_id      = aws_qbusiness_index.test.index_id
+      datasource_id = aws_qbusiness_datasource.test1.datasource_id
     }
   }
+}
+
+resource "aws_qbusiness_index" "test" {
+  application_id       = aws_qbusiness_app.test.application_id
+  display_name         = %[1]q
+  capacity_configuration {
+    units = 1
+  }
+  description          = %[1]q
+}
+
+resource "aws_s3_bucket" "test" {
+  bucket = %[1]q
+  force_destroy = true
+}
+
+resource "aws_s3_bucket" "test1" {
+  bucket = %[1]q
+  force_destroy = true
+}
+
+resource "aws_qbusiness_datasource" "test" {
+  application_id       = aws_qbusiness_app.test.application_id
+  index_id             = aws_qbusiness_index.test.index_id
+  display_name         = %[1]q
+  iam_service_role_arn = aws_iam_role.test.arn
+  configuration        = jsonencode({
+    type                     = "S3"
+    connectionConfiguration  = {
+      repositoryEndpointMetadata = {
+        BucketName = aws_s3_bucket.test.bucket
+      }
+    }
+    syncMode                 = "FULL_CRAWL"
+      repositoryConfigurations = {
+        document = {
+          fieldMappings = []
+        }
+      }
+  })
+}
+
+resource "aws_qbusiness_datasource" "test1" {
+  application_id       = aws_qbusiness_app.test.application_id
+  index_id             = aws_qbusiness_index.test.index_id
+  display_name         = %[1]q
+  iam_service_role_arn = aws_iam_role.test.arn
+  configuration        = jsonencode({
+    type                     = "S3"
+    connectionConfiguration  = {
+      repositoryEndpointMetadata = {
+        BucketName = aws_s3_bucket.test1.bucket
+      }
+    }
+    syncMode                 = "FULL_CRAWL"
+      repositoryConfigurations = {
+        document = {
+          fieldMappings = []
+        }
+      }
+  })
 }
 
 resource "aws_iam_role" "test" {
@@ -241,15 +301,15 @@ resource "aws_iam_role" "test" {
 {
 "Version": "2012-10-17",
 "Statement": [
-	{
-	"Action": "sts:AssumeRole",
-	"Principal": {
-		"Service": "qbusiness.${data.aws_partition.current.dns_suffix}"
-	},
-	"Effect": "Allow",
-	"Sid": ""
-	}
-	]
+    {
+    "Action": "sts:AssumeRole",
+    "Principal": {
+        "Service": "qbusiness.${data.aws_partition.current.dns_suffix}"
+    },
+    "Effect": "Allow",
+    "Sid": ""
+    }
+  ]
 }
 EOF
 }
@@ -260,23 +320,83 @@ func testAccUserConfig_aliasRemove(rName string) string {
 	return fmt.Sprintf(`
 data "aws_partition" "current" {}
 
-//resource "aws_qbusiness_app" "test" {
-//  display_name         = %[1]q
-//  iam_service_role_arn = aws_iam_role.test.arn
-//}
+resource "aws_qbusiness_app" "test" {
+  display_name         = %[1]q
+  iam_service_role_arn = aws_iam_role.test.arn
+}
 
 resource "aws_qbusiness_user" "test" {
-  //application_id = aws_qbusiness_app.test.application_id
-  application_id = "9e10b0a5-ae16-4109-bfff-ef81894c498d"
+  application_id = aws_qbusiness_app.test.application_id
   user_id        = "user@example.com"
 
   user_aliases {
     alias {
       user_id       = "alias2"
-	  index_id      = "6ed5dbab-6a79-407c-8d9a-3ac55ae3d67d"
-	  datasource_id = "e7eadcde-3c98-4929-a907-d16721fc756b"
+      index_id      = aws_qbusiness_index.test.index_id
+      datasource_id = aws_data_qbusinessource.test.datasource_id
     }
   }
+}
+
+resource "aws_qbusiness_index" "test" {
+  application_id       = aws_qbusiness_app.test.application_id
+  display_name         = %[1]q
+  capacity_configuration {
+    units = 1
+  }
+  description          = %[1]q
+}
+
+resource "aws_s3_bucket" "test" {
+  bucket = %[1]q
+  force_destroy = true
+}
+
+resource "aws_s3_bucket" "test1" {
+  bucket = %[1]q
+  force_destroy = true
+}
+
+resource "aws_qbusiness_datasource" "test" {
+  application_id       = aws_qbusiness_app.test.application_id
+  index_id             = aws_qbusiness_index.test.index_id
+  display_name         = %[1]q
+  iam_service_role_arn = aws_iam_role.test.arn
+  configuration        = jsonencode({
+    type                     = "S3"
+    connectionConfiguration  = {
+      repositoryEndpointMetadata = {
+        BucketName = aws_s3_bucket.test.bucket
+      }
+    }
+    syncMode                 = "FULL_CRAWL"
+      repositoryConfigurations = {
+        document = {
+          fieldMappings = []
+        }
+      }
+  })
+}
+
+resource "aws_qbusiness_datasource" "test1" {
+  application_id       = aws_qbusiness_app.test.application_id
+  index_id             = aws_qbusiness_index.test.index_id
+  display_name         = %[1]q
+  iam_service_role_arn = aws_iam_role.test.arn
+  configuration        = jsonencode({
+    type                     = "S3"
+    connectionConfiguration  = {
+      repositoryEndpointMetadata = {
+        BucketName = aws_s3_bucket.test1.bucket
+      }
+    }
+    syncMode                 = "FULL_CRAWL"
+      repositoryConfigurations = {
+        document = {
+          fieldMappings = []
+        }
+      }
+  })
 }
 
 resource "aws_iam_role" "test" {
@@ -286,15 +406,15 @@ resource "aws_iam_role" "test" {
 {
 "Version": "2012-10-17",
 "Statement": [
-	{
-	"Action": "sts:AssumeRole",
-	"Principal": {
-		"Service": "qbusiness.${data.aws_partition.current.dns_suffix}"
-	},
-	"Effect": "Allow",
-	"Sid": ""
-	}
-	]
+    {
+    "Action": "sts:AssumeRole",
+    "Principal": {
+        "Service": "qbusiness.${data.aws_partition.current.dns_suffix}"
+    },
+    "Effect": "Allow",
+    "Sid": ""
+    }
+  ]
 }
 EOF
 }
