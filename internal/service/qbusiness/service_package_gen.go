@@ -37,6 +37,14 @@ func (p *servicePackage) SDKResources(ctx context.Context) []*types.ServicePacka
 			},
 		},
 		{
+			Factory:  ResourceDatasource,
+			TypeName: "aws_qbusiness_datasource",
+			Name:     "Datasource",
+			Tags: &types.ServicePackageResourceTags{
+				IdentifierAttribute: "arn",
+			},
+		},
+		{
 			Factory:  ResourceIndex,
 			TypeName: "aws_qbusiness_index",
 			Name:     "Index",
