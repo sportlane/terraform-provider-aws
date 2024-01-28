@@ -53,6 +53,14 @@ func (p *servicePackage) SDKResources(ctx context.Context) []*types.ServicePacka
 			},
 		},
 		{
+			Factory:  ResourcePlugin,
+			TypeName: "aws_qbusiness_plugin",
+			Name:     "Plugin",
+			Tags: &types.ServicePackageResourceTags{
+				IdentifierAttribute: "arn",
+			},
+		},
+		{
 			Factory:  ResourceRetriever,
 			TypeName: "aws_qbusiness_retriever",
 			Name:     "Retriever",
