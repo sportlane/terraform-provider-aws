@@ -53,6 +53,7 @@ func (p *servicePackage) SDKResources(ctx context.Context) []*types.ServicePacka
 			},
 		},
 		{
+<<<<<<< HEAD
 			Factory:  ResourcePlugin,
 			TypeName: "aws_qbusiness_plugin",
 			Name:     "Plugin",
@@ -67,6 +68,11 @@ func (p *servicePackage) SDKResources(ctx context.Context) []*types.ServicePacka
 			Tags: &types.ServicePackageResourceTags{
 				IdentifierAttribute: "arn",
 			},
+=======
+			Factory:  ResourceUser,
+			TypeName: "aws_qbusiness_user",
+			Name:     "User",
+>>>>>>> f-aws_qbusiness_user-resource
 		},
 	}
 }
