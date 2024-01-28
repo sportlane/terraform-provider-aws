@@ -243,12 +243,12 @@ resource "aws_qbusiness_index" "test" {
 }
 
 resource "aws_s3_bucket" "test" {
-  bucket = %[1]q
+  bucket = "%[1]q-1"
   force_destroy = true
 }
 
 resource "aws_s3_bucket" "test1" {
-  bucket = %[1]q
+  bucket = "%[1]q-2"
   force_destroy = true
 }
 
@@ -348,12 +348,12 @@ resource "aws_qbusiness_index" "test" {
 }
 
 resource "aws_s3_bucket" "test" {
-  bucket = %[1]q
+  bucket = "%[1]q-1"
   force_destroy = true
 }
 
 resource "aws_s3_bucket" "test1" {
-  bucket = %[1]q
+  bucket = "%[1]q-2"
   force_destroy = true
 }
 
