@@ -290,7 +290,6 @@ func resourceIndexDelete(ctx context.Context, d *schema.ResourceData, meta inter
 }
 
 func FindIndexByID(ctx context.Context, conn *qbusiness.Client, index_id string) (*qbusiness.GetIndexOutput, error) {
-
 	id := strings.Split(index_id, "/")
 	input := &qbusiness.GetIndexInput{
 		ApplicationId: aws.String(id[0]),
